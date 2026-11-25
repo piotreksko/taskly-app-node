@@ -77,7 +77,7 @@ For `@prisma/adapter-pg` / generated client, mock the module and assert construc
 ## Don'ts
 
 - No real PostgreSQL, no network, no `setTimeout` waits – use fake timers.
-- Don't test `src/generated/**`, `types.ts`, or `main.ts` (excluded from coverage by design).
+- Don't test `src/generated/**` or `types.ts` (excluded from coverage). `main.ts` is only a two-line entry point that calls `start()` – test `lifespan.ts` instead; `main.ts` is the one file allowed to stay uncovered.
 - Don't loosen types with `any`; prefer `as unknown as T` for intentional partial fakes.
 
 Run: `cd backend && npx vitest run tests/<file>.test.ts` then `npm run typecheck` (tests are type-checked too).

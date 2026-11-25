@@ -20,7 +20,7 @@ node .github/skills/analyze-pr-changes/scripts/classify-changes.mjs --base origi
 
 The script is deterministic and mirrors the coverage excludes of both packages. Output fields:
 
-- `testable[]` – `{ file, status (A/M/R), package, testFile, testFileExists }`
+- `testable[]` – `{ file, status (A/M/R/C), package, testFile, testFileExists }`
 - `skipped[]` – `{ file, status, reason }` (types, barrels, stories, design-system, configs, docs, deleted files…)
 - `testsChanged[]` – test files the PR author already touched
 - `summary.decision` – `noop` when nothing is testable

@@ -26,6 +26,7 @@ if (!after) {
 const label = args.label ?? 'coverage';
 const files = (args.files ?? '').split(',').map((file) => file.trim().replaceAll('\\', '/')).filter(Boolean);
 
+const noBaseline = !before;
 const rows = [row(`**${label} total**`, before?.total, after.total)];
 for (const file of files) {
   rows.push(row(`\`${file}\``, find(before, file), find(after, file)));
@@ -53,8 +54,10 @@ function row(name, base, head) {
 
 function cell(basePct, headPct) {
   if (headPct === undefined) return 'not measured';
+  if (noBaseline) return `${fmt(headPct)} (n/a, no baseline)`;
   if (basePct === undefined) return `${fmt(headPct)} (new)`;
-  const delta = Math.round((headPct - basePct) * 10) / 10;
+  const round = (value) => Math.round(value * 10) / 10;
+  const delta = round(round(headPct) - round(basePct));
   if (delta === 0) return `${fmt(headPct)} (±0)`;
   const sign = delta > 0 ? '+' : '';
   const marker = delta > 0 ? ' ⬆' : ' ⬇';

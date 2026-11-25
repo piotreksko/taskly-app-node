@@ -4,7 +4,7 @@
 //
 // Usage:
 //   node classify-changes.mjs --base <git-ref> [--head <git-ref>] [--out file.json]
-//   git diff --name-status -M base...head | node classify-changes.mjs --stdin
+//   git diff --name-status -z -M base...head | node classify-changes.mjs --stdin
 //
 // Output (JSON): { base, head, testable[], skipped[], testsChanged[], summary }
 
@@ -13,6 +13,9 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const args = parseArgs(process.argv.slice(2));
+// Resolve test-file existence against the repo root, wherever the script is run from.
+const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+const exists = (file) => existsSync(path.join(root, file));
 
 // Mirrors coverage excludes in frontend/vite.config.ts and backend/vitest.config.ts,
 // plus files that hold no unit-testable logic.
@@ -60,11 +63,11 @@ for (const { status, file } of changes) {
   if (status === 'D') {
     result.skipped.push({
       file, status, reason: 'source deleted',
-      followUp: existsSync(testFile) ? `remove or update ${testFile}` : null,
+      followUp: exists(testFile) ? `remove or update ${testFile}` : null,
     });
     continue;
   }
-  result.testable.push({ file, status, package: pkg, testFile, testFileExists: existsSync(testFile) });
+  result.testable.push({ file, status, package: pkg, testFile, testFileExists: exists(testFile) });
 }
 
 result.summary = {
@@ -93,17 +96,21 @@ function readChanges({ stdin, base, head = 'HEAD' }) {
   let raw;
   if (stdin) raw = readFileSync(0, 'utf8');
   else if (base) {
-    raw = execFileSync('git', ['diff', '--name-status', '-M', `${base}...${head}`], { encoding: 'utf8' });
+    raw = execFileSync('git', ['diff', '--name-status', '-z', '-M', `${base}...${head}`], { encoding: 'utf8', cwd: root });
   } else {
     console.error('Provide --base <ref> or --stdin');
     process.exit(2);
   }
-  return raw.split('\n').filter(Boolean).map((line) => {
-    const parts = line.split('\t');
-    const status = parts[0][0]; // R100 -> R
-    const file = parts[parts.length - 1].replaceAll('\\', '/');
-    return { status, file };
-  });
+  // Accept both `-z` (NUL-separated, safe for any filename) and plain tab/newline output.
+  if (!raw.includes('\0')) raw = raw.split('\n').filter(Boolean).map((line) => line.split('\t').join('\0')).join('\0');
+  const tokens = raw.split('\0').filter(Boolean);
+  const changes = [];
+  for (let i = 0; i < tokens.length; ) {
+    const status = tokens[i++][0]; // R100 -> R, C75 -> C
+    if (status === 'R' || status === 'C') i++; // skip the old path, keep the new one
+    changes.push({ status, file: tokens[i++].replaceAll('\\', '/') });
+  }
+  return changes;
 }
 
 function parseArgs(argv) {

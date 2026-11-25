@@ -30,9 +30,12 @@ Run both for every package you touched (and only those):
 
 ```sh
 cd backend  && npm run typecheck && npm run test:coverage
-cd frontend && npm run typecheck && npm run test:coverage && npx prettier --check $(git diff --name-only -- 'src/**/*.test.ts' 'src/**/*.test.tsx' | sed 's#^frontend/##')
+cd frontend && npm run typecheck && npm run test:coverage
+# Prettier on the frontend test files you touched – modified *and* new (untracked) ones:
+cd frontend && git ls-files -m -o --exclude-standard -- 'src/**/*.test.ts' 'src/**/*.test.tsx' 'src/test/**' | xargs -r npx prettier --check
 ```
 
+- Don't use `npm run format:check` as the gate: upstream files are already unformatted (e.g. `ApplicationHeader.test.tsx`), so it fails regardless of your work. Fix your own files with `npx prettier --write <file>`; never edit `.prettierignore`. On Windows with `core.autocrlf=true`, add `--end-of-line auto`.
 - `test:coverage` enforces the thresholds in `vitest.config.ts` / `vite.config.ts`; a threshold failure is a failure.
 - Flakiness check: re-run the new test files once more (`npx vitest run <files>`); if a result differs, treat as failing.
 - Record the **real** summary line, e.g. `Test Files 6 passed (6) | Tests 71 passed (71)`.

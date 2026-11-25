@@ -32,20 +32,18 @@ When a component composes heavy children, mock them like `TodosPage.test.tsx` do
 
 ### Hooks using TanStack Query – real QueryClient, mocked API
 
+Use the shared helper `src/test/queryWrapper.tsx` – it returns a fresh, retry-free client per call:
+
 ```tsx
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
-import type { ReactNode } from 'react'
 import { todosApi } from '../api/todos'
 import { todoKeys } from '../api/queryKeys'
+import { createQueryWrapper } from '../../../test/queryWrapper'
 
 vi.mock('../api/todos', () => ({ todosApi: { list: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn() } }))
 
-function setup() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
-  const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>
-  return { client, wrapper }
-}
+const { client, wrapper } = createQueryWrapper() // call inside each test
+const { result } = renderHook(() => useTodosQuery(), { wrapper })
 ```
 
 Seed cache with `client.setQueryData(todoKeys.list, [todoFixture])`, run `await result.current.mutateAsync(...)` inside `act` or wait with `waitFor`, then assert `client.getQueryData(todoKeys.list)`. Use a fresh client per test (no shared cache). Hook test files that contain JSX must be `.test.tsx`.
