@@ -36,6 +36,30 @@ it('tolerates an empty cache', async () => {
   expect(client.getQueryData(todoKeys.list)).toBeUndefined()
 })
 
+it('invalidates every cached summary after a successful deletion', async () => {
+  const { client, wrapper } = createQueryWrapper()
+  client.setQueryData(todoKeys.summary(3), { total: 1 })
+  client.setQueryData(todoKeys.summary(7), { total: 1 })
+  vi.mocked(todosApi.remove).mockResolvedValue(undefined)
+  const { result } = renderHook(() => useDeleteTodoMutation(), { wrapper })
+  await act(() => result.current.mutateAsync(todoFixture.id))
+  expect(client.getQueryState(todoKeys.summary(3))?.isInvalidated).toBe(true)
+  expect(client.getQueryState(todoKeys.summary(7))?.isInvalidated).toBe(true)
+})
+
+it('keeps summaries valid when deletion fails', async () => {
+  const { client, wrapper } = createQueryWrapper()
+  client.setQueryData(todoKeys.summary(3), { total: 1 })
+  vi.mocked(todosApi.remove).mockRejectedValue(new Error('Could not delete.'))
+  const { result } = renderHook(() => useDeleteTodoMutation(), { wrapper })
+  await act(() =>
+    expect(result.current.mutateAsync(todoFixture.id)).rejects.toThrow(
+      'Could not delete.',
+    ),
+  )
+  expect(client.getQueryState(todoKeys.summary(3))?.isInvalidated).toBe(false)
+})
+
 it('keeps the task cached when deletion fails', async () => {
   const { client, wrapper } = createQueryWrapper()
   client.setQueryData(todoKeys.list, [todoFixture])

@@ -1,6 +1,6 @@
 import express from 'express';
 import request from 'supertest';
-import { it, expect, vi } from 'vitest';
+import { it, expect, vi, afterEach } from 'vitest';
 import { createTodosRouter } from '../src/features/todos/router.ts';
 import { todo } from './fixture.ts';
 
@@ -98,4 +98,30 @@ it('returns 404 when deleting a missing task', async () => {
   const response = await request(app).delete('/api/todos/99');
   expect(response.status).toBe(404);
   expect(response.body).toEqual({ detail: 'Task not found.' });
+});
+
+afterEach(() => vi.useRealTimers());
+it('summarizes tasks relative to the current UTC day with the default window', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-14T23:30:00Z'));
+  const { app, repository } = setup();
+  repository.list.mockResolvedValue([{ ...todo, due_date: '2026-10-13' }, { ...todo, due_date: '2026-10-17' }, { ...todo, completed: true }]);
+  const response = await request(app).get('/api/todos/summary');
+  expect(response.status).toBe(200);
+  expect(response.body).toEqual({ total: 3, open: 2, completed: 1, overdue: 1, dueSoon: 1 });
+});
+it('passes the days query to the summary', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-14T12:00:00Z'));
+  const { app, repository } = setup();
+  repository.list.mockResolvedValue([{ ...todo, due_date: '2026-10-20' }]);
+  expect((await request(app).get('/api/todos/summary?days=5')).body.dueSoon).toBe(0);
+  expect((await request(app).get('/api/todos/summary?days=6')).body.dueSoon).toBe(1);
+});
+it.each(['days=-1', 'days=31', 'days=1.5', 'days=abc'])('rejects an invalid summary query without listing tasks: %s', async (query) => {
+  const { app, repository } = setup();
+  const response = await request(app).get(`/api/todos/summary?${query}`);
+  expect(response.status).toBe(422);
+  expect(response.body.detail).toEqual(expect.any(Array));
+  expect(repository.list).not.toHaveBeenCalled();
 });

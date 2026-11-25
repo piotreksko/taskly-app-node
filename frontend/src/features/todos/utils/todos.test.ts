@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { formatDate, isOverdue, selectTodos, validateTodo } from './todos'
+import {
+  dueLabel,
+  formatDate,
+  isOverdue,
+  selectTodos,
+  validateTodo,
+} from './todos'
 import type { Todo, TodoInput } from '../types'
 
 const base: Todo = {
@@ -166,6 +172,38 @@ describe('isOverdue', () => {
     ['a task without a due date', { due_date: null }, false],
   ])('treats %s as overdue: %s', (_, overrides, expected) => {
     expect(isOverdue({ ...base, ...overrides })).toBe(expected)
+  })
+})
+
+describe('dueLabel', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 9, 10, 12, 0, 0))
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it.each([
+    ['yesterday', { due_date: '2026-10-09' }, 'overdue'],
+    ['today', { due_date: '2026-10-10' }, 'due today'],
+    ['tomorrow', { due_date: '2026-10-11' }, 'due tomorrow'],
+    ['in 2 days', { due_date: '2026-10-12' }, 'due in 2 days'],
+    ['in exactly 3 days', { due_date: '2026-10-13' }, 'due in 3 days'],
+    ['in 4 days', { due_date: '2026-10-14' }, null],
+    ['without a due date', { due_date: null }, null],
+    [
+      'when completed, even if overdue',
+      { due_date: '2026-10-09', completed: true },
+      null,
+    ],
+  ])('labels an active task due %s as %s', (_, overrides, expected) => {
+    expect(dueLabel({ ...base, ...overrides })).toBe(expected)
+  })
+
+  it('uses the given date instead of the current time', () => {
+    const now = new Date(2026, 11, 31, 8, 0, 0)
+    expect(dueLabel({ ...base, due_date: '2027-01-01' }, now)).toBe(
+      'due tomorrow',
+    )
   })
 })
 

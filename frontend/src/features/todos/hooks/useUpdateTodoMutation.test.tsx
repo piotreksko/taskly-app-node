@@ -46,6 +46,32 @@ it('does not create a list when nothing is cached yet', async () => {
   expect(client.getQueryData(todoKeys.list)).toBeUndefined()
 })
 
+it('invalidates every cached summary after a successful update', async () => {
+  const { client, wrapper } = createQueryWrapper()
+  client.setQueryData(todoKeys.summary(3), { total: 1 })
+  client.setQueryData(todoKeys.summary(7), { total: 1 })
+  vi.mocked(todosApi.update).mockResolvedValue(todoFixture)
+  const { result } = renderHook(() => useUpdateTodoMutation(), { wrapper })
+  await act(() =>
+    result.current.mutateAsync({ id: todoFixture.id, input: { title: 'x' } }),
+  )
+  expect(client.getQueryState(todoKeys.summary(3))?.isInvalidated).toBe(true)
+  expect(client.getQueryState(todoKeys.summary(7))?.isInvalidated).toBe(true)
+})
+
+it('keeps summaries valid when the update fails', async () => {
+  const { client, wrapper } = createQueryWrapper()
+  client.setQueryData(todoKeys.summary(3), { total: 1 })
+  vi.mocked(todosApi.update).mockRejectedValue(new Error('Task not found.'))
+  const { result } = renderHook(() => useUpdateTodoMutation(), { wrapper })
+  await act(() =>
+    expect(
+      result.current.mutateAsync({ id: 7, input: { completed: true } }),
+    ).rejects.toThrow('Task not found.'),
+  )
+  expect(client.getQueryState(todoKeys.summary(3))?.isInvalidated).toBe(false)
+})
+
 it('keeps the cached task when the update fails', async () => {
   const { client, wrapper } = createQueryWrapper()
   client.setQueryData(todoKeys.list, [todoFixture])

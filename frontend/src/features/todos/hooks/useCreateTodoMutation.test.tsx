@@ -47,6 +47,17 @@ it('seeds an empty cache with the created task', async () => {
   expect(client.getQueryData(todoKeys.list)).toEqual([todoFixture])
 })
 
+it('invalidates every cached summary after a successful creation', async () => {
+  const { client, wrapper } = createQueryWrapper()
+  client.setQueryData(todoKeys.summary(3), { total: 1 })
+  client.setQueryData(todoKeys.summary(7), { total: 1 })
+  vi.mocked(todosApi.create).mockResolvedValue(todoFixture)
+  const { result } = renderHook(() => useCreateTodoMutation(), { wrapper })
+  await act(() => result.current.mutateAsync(todoFixture))
+  expect(client.getQueryState(todoKeys.summary(3))?.isInvalidated).toBe(true)
+  expect(client.getQueryState(todoKeys.summary(7))?.isInvalidated).toBe(true)
+})
+
 it('cancels an in-flight list refetch before writing the server response', async () => {
   const { client, wrapper } = createQueryWrapper()
   const cancel = vi.spyOn(client, 'cancelQueries')

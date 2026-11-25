@@ -13,6 +13,14 @@ it('passes the abort signal when fetching tasks', async () => {
   expect(request).toHaveBeenCalledWith('/todos', { signal })
 })
 
+it('requests the summary for the given window and passes the abort signal', async () => {
+  const signal = new AbortController().signal
+  const summary = { total: 4, open: 3, completed: 1, overdue: 1, dueSoon: 2 }
+  vi.mocked(request).mockResolvedValue(summary)
+  await expect(todosApi.summary(5, signal)).resolves.toEqual(summary)
+  expect(request).toHaveBeenCalledWith('/todos/summary?days=5', { signal })
+})
+
 it('sends only writable task fields on creation', async () => {
   vi.mocked(request).mockResolvedValue(todoFixture)
   await expect(todosApi.create(todoFixture)).resolves.toEqual(todoFixture)
