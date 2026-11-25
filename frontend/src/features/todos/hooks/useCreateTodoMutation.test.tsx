@@ -17,6 +17,17 @@ vi.mock('../api/todos', () => ({
 }))
 beforeEach(() => vi.clearAllMocks())
 
+it('invalidates the cached summaries after creating a task', async () => {
+  const { client, wrapper } = createQueryWrapper()
+  client.setQueryData(todoKeys.summary(3), { total: 0 })
+  const invalidate = vi.spyOn(client, 'invalidateQueries')
+  vi.mocked(todosApi.create).mockResolvedValue(todoFixture)
+  const { result } = renderHook(() => useCreateTodoMutation(), { wrapper })
+  await act(() => result.current.mutateAsync(todoFixture))
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: todoKeys.summaries })
+  expect(client.getQueryState(todoKeys.summary(3))?.isInvalidated).toBe(true)
+})
+
 it('prepends the created task to the cached list', async () => {
   const { client, wrapper } = createQueryWrapper()
   const older: Todo = { ...todoFixture, id: 1 }

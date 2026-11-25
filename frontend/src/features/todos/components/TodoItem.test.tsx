@@ -112,6 +112,15 @@ describe('with a fixed current date', () => {
     expect(screen.getByText('1 Oct 2026 · overdue')).toBeVisible()
   })
 
+  it.each([
+    ['2026-10-10', '10 Oct 2026 · due today'],
+    ['2026-10-11', '11 Oct 2026 · due tomorrow'],
+    ['2026-10-13', '13 Oct 2026 · due in 3 days'],
+  ])('labels an active task due on %s as due soon', (due_date, text) => {
+    renderAt({ ...todoFixture, due_date })
+    expect(screen.getByText(text)).toBeVisible()
+  })
+
   it('shows a future due date without the overdue marker', () => {
     renderAt({ ...todoFixture, due_date: '2026-10-20' })
     expect(screen.getByText('20 Oct 2026')).toBeVisible()

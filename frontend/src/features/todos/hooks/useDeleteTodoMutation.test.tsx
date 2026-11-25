@@ -17,6 +17,17 @@ vi.mock('../api/todos', () => ({
 }))
 beforeEach(() => vi.clearAllMocks())
 
+it('invalidates the cached summaries after deleting a task', async () => {
+  const { client, wrapper } = createQueryWrapper()
+  client.setQueryData(todoKeys.summary(3), { total: 0 })
+  const invalidate = vi.spyOn(client, 'invalidateQueries')
+  vi.mocked(todosApi.remove).mockResolvedValue(undefined)
+  const { result } = renderHook(() => useDeleteTodoMutation(), { wrapper })
+  await act(() => result.current.mutateAsync(todoFixture.id))
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: todoKeys.summaries })
+  expect(client.getQueryState(todoKeys.summary(3))?.isInvalidated).toBe(true)
+})
+
 it('removes the deleted task from the cached list', async () => {
   const { client, wrapper } = createQueryWrapper()
   const other: Todo = { ...todoFixture, id: 1 }

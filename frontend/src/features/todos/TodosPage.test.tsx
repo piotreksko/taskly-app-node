@@ -34,6 +34,9 @@ vi.mock('./components/TodosHeader', () => ({
     </>
   ),
 }))
+vi.mock('./components/TodoSummaryBar', () => ({
+  TodoSummaryBar: () => <section aria-label="Task summary" />,
+}))
 vi.mock('./components/TodoFilters', () => ({ TodoFilters: () => null }))
 vi.mock('./components/TodoList', () => ({
   TodoList: ({
@@ -183,6 +186,12 @@ it('displays a query failure and resets mutation errors before retrying', async 
   expect(reset.mock.invocationCallOrder[0]).toBeLessThan(
     refetch.mock.invocationCallOrder[0],
   )
+})
+
+it('shows the task summary bar next to the list', () => {
+  mockPage()
+  render(<TodosPage />)
+  expect(screen.getByRole('region', { name: 'Task summary' })).toBeVisible()
 })
 
 it('completes an active task and celebrates it', async () => {

@@ -99,3 +99,45 @@ it('returns 404 when deleting a missing task', async () => {
   expect(response.status).toBe(404);
   expect(response.body).toEqual({ detail: 'Task not found.' });
 });
+it('summarizes tasks relative to the current UTC day with the default window', async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-10-14T23:30:00Z'));
+  try {
+    const { app, repository } = setup();
+    repository.list.mockResolvedValue([
+      { ...todo, id: 1, due_date: '2026-10-13' },
+      { ...todo, id: 2, due_date: '2026-10-14' },
+      { ...todo, id: 3, due_date: '2026-10-17' },
+      { ...todo, id: 4, due_date: '2026-10-18' },
+      { ...todo, id: 5, completed: true, due_date: '2026-10-01' },
+    ]);
+    const response = await request(app).get('/api/todos/summary');
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ total: 5, open: 4, completed: 1, overdue: 1, dueSoon: 2 });
+    expect(repository.get).not.toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+it('summarizes tasks with a custom days window', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-14T08:00:00Z'));
+  try {
+    const { app, repository } = setup();
+    repository.list.mockResolvedValue([{ ...todo, due_date: '2026-10-18' }]);
+    const narrow = await request(app).get('/api/todos/summary?days=3');
+    expect(narrow.body).toMatchObject({ overdue: 0, dueSoon: 0 });
+    const wide = await request(app).get('/api/todos/summary?days=4');
+    expect(wide.status).toBe(200);
+    expect(wide.body).toMatchObject({ overdue: 0, dueSoon: 1 });
+  } finally {
+    vi.useRealTimers();
+  }
+});
+it.each(['-1', '31', '1.5', 'abc'])('rejects an invalid summary window without listing tasks: days=%s', async (days) => {
+  const { app, repository } = setup();
+  const response = await request(app).get(`/api/todos/summary?days=${days}`);
+  expect(response.status).toBe(422);
+  expect(response.body.detail).toEqual(expect.any(Array));
+  expect(repository.list).not.toHaveBeenCalled();
+});

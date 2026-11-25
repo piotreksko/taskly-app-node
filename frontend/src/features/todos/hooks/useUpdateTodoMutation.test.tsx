@@ -17,6 +17,22 @@ vi.mock('../api/todos', () => ({
 }))
 beforeEach(() => vi.clearAllMocks())
 
+it('invalidates the cached summaries after updating a task', async () => {
+  const { client, wrapper } = createQueryWrapper()
+  client.setQueryData(todoKeys.summary(3), { total: 0 })
+  const invalidate = vi.spyOn(client, 'invalidateQueries')
+  vi.mocked(todosApi.update).mockResolvedValue(todoFixture)
+  const { result } = renderHook(() => useUpdateTodoMutation(), { wrapper })
+  await act(() =>
+    result.current.mutateAsync({
+      id: todoFixture.id,
+      input: { completed: true },
+    }),
+  )
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: todoKeys.summaries })
+  expect(client.getQueryState(todoKeys.summary(3))?.isInvalidated).toBe(true)
+})
+
 it('sends the partial input and replaces only the saved task in the cache', async () => {
   const { client, wrapper } = createQueryWrapper()
   const other: Todo = { ...todoFixture, id: 1, title: 'Other' }
