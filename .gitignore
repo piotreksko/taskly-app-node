@@ -24,3 +24,6 @@ coverage/
 
 # Private recruitment instructions (never commit)
 /assignment*.md
+
+# Local Claude Code settings (machine-specific)
+.claude/settings.local.json
