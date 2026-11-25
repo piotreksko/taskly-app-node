@@ -14,6 +14,8 @@ export function useUpdateTodoMutation() {
       queryClient.setQueryData<Todo[]>(todoKeys.list, (current) =>
         current?.map((todo) => (todo.id === saved.id ? saved : todo)),
       )
+      // Counts in the summary bar depend on every change to the list.
+      void queryClient.invalidateQueries({ queryKey: todoKeys.summaries })
     },
   })
 }

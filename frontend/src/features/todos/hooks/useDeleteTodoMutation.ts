@@ -13,6 +13,8 @@ export function useDeleteTodoMutation() {
       queryClient.setQueryData<Todo[]>(todoKeys.list, (current) =>
         current?.filter((todo) => todo.id !== id),
       )
+      // Counts in the summary bar depend on every change to the list.
+      void queryClient.invalidateQueries({ queryKey: todoKeys.summaries })
     },
   })
 }
