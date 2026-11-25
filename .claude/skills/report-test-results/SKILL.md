@@ -21,7 +21,7 @@ The report is posted as a single PR comment (in CI via the `add_comment` safe ou
 ~~~markdown
 ## 🧪 Unit Test Agent report
 
-**Status:** ✅ Tests added and passing | ⚠️ Partially – see dropped tests | ℹ️ No changes needed | ❌ Verification failed
+**Status:** ✅ Tests added and passing | ⚠️ Partially – see dropped tests | ℹ️ No changes needed | ❌ Verification failed | ❌ Tests not delivered (commit or push failed – the diff is attached below)
 **Scope:** Full analysis | Incremental – changes since `<since, 7 chars>` ([previous report](<previousReport>)); unchanged files not re-analysed: N, formatting-only: `<files>`
 **Commit:** (filled in by the workflow after the push – keep this line exactly as it is)
 
@@ -78,5 +78,5 @@ cd backend && npm run typecheck && npm run test:coverage
 
 ## Delivering it
 
-- **CI (gh-aw):** call the `add_comment` safe-output tool with the Markdown body (older reports are hidden automatically). Test files you edited are picked up by the `push_to_pull_request_branch` safe output – call it once with a commit message like `test: add unit tests for <scope> (unit-test-agent)`. If nothing changed, call `noop` with a one-line reason **and** still post the comment when the PR had testable files.
+- **CI (gh-aw):** `push_to_pull_request_branch` publishes your *local commit*, so commit first – two separate one-line Bash calls: `git add -A backend/tests frontend/src`, then `git commit -m "test: add unit tests for <scope>"` (no multi-line message, no `&&` chain: the sandbox refuses compound commands). Then call `push_to_pull_request_branch` once, and `add_comment` with the Markdown body (older reports are hidden automatically). If nothing changed, call `noop` with a one-line reason **and** still post the comment when the PR had testable files.
 - **Locally:** print the report; the human decides what to commit.
