@@ -1,5 +1,5 @@
 ---
-name: react-component-tests
+name: frontend-vitest-tests
 description: Conventions and ready patterns for unit-testing the Taskly frontend – React 19 components, TanStack Query hooks, utilities and the fetch wrapper – with Vitest, jsdom, React Testing Library and user-event. Use when creating or updating frontend/src/**/*.test.ts(x).
 ---
 
@@ -69,7 +69,7 @@ Cover: success JSON, 204 → `undefined`, 422 message, `detail` string from body
 
 ## Don'ts
 
-- No tests for `src/design-system/**`, `*.stories.tsx`, `types.ts`, `index.ts`, `main.tsx`, `queryKeys.ts`, `queryClient.ts` (excluded from coverage).
+- No tests for files excluded from coverage – the `coverage.exclude` list in `frontend/vite.config.ts` is the source of truth (design system, types, barrels, constants, entry point, …) – or for `*.stories.tsx`.
 - No real network, no `setTimeout` sleeps, no reliance on CSS or styled-components output.
 - Don't `getByTestId` when an accessible role/name exists.
 

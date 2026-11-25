@@ -15,6 +15,7 @@ Guidance for AI coding agents working in this repository.
 ```sh
 cd backend  && npm ci && npm run typecheck && npm run test:coverage
 cd frontend && npm ci && npm run typecheck && npm run test:coverage && npm run format:check
+node --test scripts/test/skill-scripts.test.mjs   # tests of the agent's skill scripts
 ```
 
 Install with `SCARF_ANALYTICS=false` to skip the `@scarf/scarf` install-time telemetry ping. Unit tests need no database.
@@ -24,4 +25,4 @@ Install with `SCARF_ANALYTICS=false` to skip the `@scarf/scarf` install-time tel
 - Unit tests only; no real network or database; fake time with `vi.setSystemTime`.
 - Don't modify application code when the task is writing tests; report suspected bugs instead.
 - Never weaken or skip tests to make them pass. No new dependencies.
-- Coverage thresholds live in `backend/vitest.config.ts` and `frontend/vite.config.ts`.
+- Coverage thresholds live in `backend/vitest.config.ts` (100% for validators and mappers) and `frontend/vite.config.ts` (package-wide floor).
