@@ -43,8 +43,9 @@ The base repository was third-party code, so I reviewed it **before** installing
 
 **Security posture**
 
-- The agent job only has `contents: read` and `pull-requests: read`. All writes happen in the separate safe-outputs job.
+- The agent job only has `contents: read`, `pull-requests: read` and `id-token: write` (used only to get the API token, see below). All writes happen in the separate safe-outputs job.
 - gh-aw enforces the push allowlist (`allowed-files`: test files and fixtures only; `protected-files: blocked`). The agent can't change application code, configs, workflows or the agent and skill files, even if it tries.
+- **No stored API key.** GitHub's OIDC token for each run is exchanged for a short-lived Anthropic token by gh-aw's API proxy (Workload Identity Federation, `engine.auth`). The federation rule accepts only `pull_request` runs of this repository, pinned to the owner's numeric ID, and is scoped to one workspace with a spend limit. Only the agent and threat-detection jobs get `id-token: write`, and gh-aw keeps the token-request variables out of the agent's sandbox, so the agent can't mint tokens itself.
 - Network: the agent sandbox reaches only the Anthropic API, through gh-aw's API proxy. Package registries are blocked. Dependencies are installed beforehand with `npm ci --ignore-scripts`, plus an explicit `prisma generate`.
 - Bash is restricted to an allowlist: read tools, `npm run`, `npx vitest/prettier/tsc` and read-only git.
 - Fork PRs are blocked (gh-aw default), and `pull_request_target` is not used.
@@ -79,7 +80,7 @@ Every run works on the PR's latest head commit. Its checkpoint is the commit of 
 **Prerequisites**
 
 1. GitHub Actions enabled on the repository.
-2. A repository secret `ANTHROPIC_API_KEY` (`gh aw secrets set ANTHROPIC_API_KEY`, or *Settings → Secrets and variables → Actions*).
+2. **No API key.** The workflow authenticates with Workload Identity Federation. In the Anthropic Console, under *Workload identity*, create a federation rule for GitHub Actions: issuer `https://token.actions.githubusercontent.com`, repository `<owner>/<repo>`, owner numeric ID, allowed event `pull_request` only, one workspace with a spend limit, and a service account in that workspace. Put the four IDs (federation rule, organization, service account, workspace) under `engine.auth` in `unit-test-agent.md`. They are identifiers, not secrets. Make sure that organization has API credit. (To use an API key instead, remove `engine.auth` and the `id-token: write` permission, and add the repository secret `ANTHROPIC_API_KEY`.)
 3. To change the workflow: the [`gh` CLI](https://cli.github.com/) with the gh-aw extension (`gh extension install github/gh-aw`). Then run `gh aw compile` and commit both `unit-test-agent.md` and `unit-test-agent.lock.yml`.
 
 **Running it**

@@ -18,11 +18,24 @@ if: ${{ !github.event.pull_request.draft }}
 permissions:
   contents: read
   pull-requests: read
+  id-token: write # only to mint the OIDC token for the Anthropic API (see engine.auth); it grants no repository access
 
 strict: true
 
 engine:
   id: claude
+  # Keyless: GitHub's OIDC token for this run is exchanged for a short-lived Anthropic token inside
+  # gh-aw's API proxy (Workload Identity Federation). No API key is stored in the repository.
+  # The federation rule only accepts pull_request runs of piotreksko/taskly-app-node (owner id 35628226)
+  # and is scoped to one workspace with its own spend limit. These IDs are identifiers, not secrets.
+  auth:
+    type: github-oidc
+    provider: anthropic
+    audience: https://api.anthropic.com
+    federation-rule-id: fdrl_01L5pN1vMqeY9RN7tGgKUaRx
+    organization-id: 2b7f2ef2-1af2-4f70-987f-251fb0512ab3
+    service-account-id: svac_01BSN1dWqAqeHS1pjaejno72
+    workspace-id: wrkspc_01FLXvYwdb9APuaeewX1YLHT
 model: claude-sonnet-5-5
 max-turns: 80
 timeout-minutes: 30
