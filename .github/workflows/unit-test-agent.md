@@ -164,6 +164,21 @@ jobs:
           fi
           gh workflow run ci.yml --repo "$REPO" --ref "$HEAD_REF"
           echo "Started CI on $PUSH_SHA"
+      - name: Remove the bot push's approval-waiting runs
+        if: needs.safe_outputs.outputs.push_commit_sha != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PUSH_SHA: ${{ needs.safe_outputs.outputs.push_commit_sha }}
+        run: |
+          # The agent's push creates pull_request runs (actor github-actions[bot]) that wait for maintainer
+          # approval and would only repeat the work: CI was dispatched above, and this workflow must not re-run.
+          # Delete just those runs of this commit, so the PR doesn't show them as pending checks.
+          ids=$(gh api "repos/$REPO/actions/runs?head_sha=$PUSH_SHA&event=pull_request&status=action_required"             --jq '.workflow_runs[] | select(.actor.login == "github-actions[bot]") | .id')
+          for id in $ids; do
+            gh api -X DELETE "repos/$REPO/actions/runs/$id" && echo "Removed approval-waiting run $id"
+          done
+          [ -n "$ids" ] || echo "No approval-waiting runs for $PUSH_SHA"
 
 # The custom agent (role, procedure, hard rules) and its reusable skills.
 imports:
@@ -319,10 +334,9 @@ safe-outputs:
     commit-title-suffix: " [unit-test-agent]"
     # Pushes made with GITHUB_TOKEN don't re-trigger workflows, which also prevents an agent loop.
     github-token-for-extra-empty-commit: none
-    # Plain git push instead of an API-created signed commit: the API path emits pull_request events whose
-    # runs (actor github-actions[bot]) wait for manual approval. finalize-report dispatches CI explicitly instead.
-    # Trade-off: the agent's commit is not marked "Verified".
-    signed-commits: false
+    # Signed (Verified) commits through the API (gh-aw default). Any bot push – signed or plain git push – creates
+    # pull_request runs that wait for maintainer approval; finalize-report removes those and dispatches CI instead.
+    signed-commits: true
   noop:
 ---
 

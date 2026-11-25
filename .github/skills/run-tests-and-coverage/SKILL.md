@@ -21,6 +21,7 @@ For each failure decide which side is wrong:
 - **Test is wrong** (bad selector, wrong mock, async timing, wrong expectation of *unchanged* behaviour) → fix the test. Prefer `findBy*`/`waitFor` over sleeps.
 - **Source looks wrong** (test asserts the behaviour the PR/diff clearly intends, the code does otherwise) → do **not** change the source and do **not** bend the assertion. Remove that test and record a *suspected bug* with: file, line, input, expected vs actual.
 - Still failing after 2 attempts → remove the test, record it as *dropped* with the error message.
+- **A new test makes an existing test fail, or fails itself, depending on order** (passes alone, fails in the file or the suite) → state leaks between tests. First isolate your own test: reset the mocks and the query cache it touches (`beforeEach`/`afterEach`, a fresh `createQueryWrapper()`), don't share module-level mutable state. If the order dependence remains, don't just drop it: report both tests as *order-dependent* under *Found while testing* – it is a weakness of the suite the developer should know about.
 
 Never get to green by weakening a test (agent hard rule – no `.skip`/`.only`, no deleted or widened assertions).
 
@@ -58,10 +59,10 @@ cd frontend && npm run typecheck && npm run test:coverage -- --coverage.reportOn
 cd frontend && git ls-files -m -o --exclude-standard -- 'src/**/*.test.ts' 'src/**/*.test.tsx' 'src/test/**' | xargs -r npx prettier --check
 ```
 
-- Don't use `npm run format:check` as the gate: upstream files are already unformatted (e.g. `ApplicationHeader.test.tsx`), so it fails regardless of your work. Fix your own files with `npx prettier --write <file>`; never edit `.prettierignore`. On Windows with `core.autocrlf=true`, add `--end-of-line auto`.
+- Don't use `npm run format:check` as the gate: upstream files are already unformatted (e.g. `ApplicationHeader.test.tsx`), so it fails regardless of your work. Fix your own files with `npx prettier --write <file>`; never edit `.prettierignore`. On Windows with `core.autocrlf=true`, add `--end-of-line auto`. Pass Prettier **only the test files you touched**, by name – never a directory such as `src/features/todos`: that would reformat application source too, which you must not change (and the push would reject it).
 - `--coverage.reportOnFailure` keeps the coverage report even when a test fails (for example a pre-existing failure you left alone as a suspected bug); without it, section 5 has nothing to read.
 - `test:coverage` enforces the thresholds in `backend/vitest.config.ts` (100% per file for validators and mappers) and `frontend/vite.config.ts` (package-wide floor); a threshold failure is a failure. They guard against regressions only – new code is judged by the changed-lines table in section 5.
-- Tests listed in `<ctx>/failing-tests.json` already failed before you started. Those you left alone as *suspected bugs* still fail – report them as pre-existing (status ⚠️), not as your failures. Any other failure is yours to fix or drop.
+- Tests listed in `<ctx>/failing-tests.json` already failed before you started – they are failing because of this PR, not on `main`. Those you left alone (unexplained behaviour change, suspected bug) still fail: report them as "failing before the agent ran (caused by this PR)" in *Found while testing*, never as "pre-existing" and not as your failures. Any other failure is yours to fix or drop.
 - Flakiness check: re-run the new test files once more (`npx vitest run <files>`); if a result differs, treat as failing.
 - Record the **real** summary line, e.g. `Test Files 6 passed (6) | Tests 71 passed (71)`.
 
