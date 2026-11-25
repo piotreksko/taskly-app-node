@@ -12,7 +12,7 @@ description: Conventions and ready patterns for writing unit tests for the Taskl
 - Import test APIs explicitly: `import { it, expect, vi, afterEach } from 'vitest';` (no globals in backend).
 - Style: top-level `it(...)` blocks, `it.each` for tables, a local `setup()` helper returning what the test needs. Short, behaviour-named titles (`'rejects invalid create input without calling the repository: %j'`).
 - Shared data: `tests/fixture.ts` exports `record` (Prisma row, `Date` fields) and `todo` (API JSON). Extend it rather than inventing new fixtures inline when the shape is reused.
-- Formatting: single quotes, semicolons, 2-space indent (match existing backend tests).
+- Formatting: single quotes, semicolons, 2-space indent (match existing backend tests). The backend has **no formatter** configured and its tests are not Prettier-formatted: don't run Prettier on backend files, and don't reformat existing lines – match the neighbouring style by hand.
 - Restore spies: `afterEach(() => vi.restoreAllMocks());` when using `vi.spyOn`.
 
 ## Patterns

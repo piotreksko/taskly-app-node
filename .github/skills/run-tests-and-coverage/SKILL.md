@@ -42,8 +42,9 @@ Passing is not enough. Re-read every test you added or changed and fix or remove
 Then check that existing tests were preserved (agent rule "existing tests are human-owned"):
 
 ```sh
-# Lines removed or changed in test files that existed before this run – must be empty or each one justified in the report:
-git diff -U0 -- backend/tests frontend/src | grep -E '^-[^-]' || echo "no existing test lines removed or changed"
+# Lines removed or changed in test files that existed before this run – must be empty or each one justified in the report.
+# Import lines are ignored: extending an existing import (`import { a, b } from …`) is normal and allowed.
+git diff -U0 -- backend/tests frontend/src | grep -E '^-[^-]' | grep -vE '^-\s*import ' || echo "no existing test lines removed or changed"
 ```
 
 ## 4. Full verification per touched package
@@ -51,13 +52,14 @@ git diff -U0 -- backend/tests frontend/src | grep -E '^-[^-]' || echo "no existi
 Run both for every package you touched (and only those):
 
 ```sh
-cd backend  && npm run typecheck && npm run test:coverage
-cd frontend && npm run typecheck && npm run test:coverage
+cd backend  && npm run typecheck && npm run test:coverage -- --coverage.reportOnFailure
+cd frontend && npm run typecheck && npm run test:coverage -- --coverage.reportOnFailure
 # Prettier on the frontend test files you touched – modified *and* new (untracked) ones:
 cd frontend && git ls-files -m -o --exclude-standard -- 'src/**/*.test.ts' 'src/**/*.test.tsx' 'src/test/**' | xargs -r npx prettier --check
 ```
 
 - Don't use `npm run format:check` as the gate: upstream files are already unformatted (e.g. `ApplicationHeader.test.tsx`), so it fails regardless of your work. Fix your own files with `npx prettier --write <file>`; never edit `.prettierignore`. On Windows with `core.autocrlf=true`, add `--end-of-line auto`.
+- `--coverage.reportOnFailure` keeps the coverage report even when a test fails (for example a pre-existing failure you left alone as a suspected bug); without it, section 5 has nothing to read.
 - `test:coverage` enforces the thresholds in `backend/vitest.config.ts` (100% per file for validators and mappers) and `frontend/vite.config.ts` (package-wide floor); a threshold failure is a failure. They guard against regressions only – new code is judged by the changed-lines table in section 5.
 - Tests listed in `<ctx>/failing-tests.json` already failed before you started. Those you left alone as *suspected bugs* still fail – report them as pre-existing (status ⚠️), not as your failures. Any other failure is yours to fix or drop.
 - Flakiness check: re-run the new test files once more (`npx vitest run <files>`); if a result differs, treat as failing.

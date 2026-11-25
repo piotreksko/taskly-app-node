@@ -28,7 +28,9 @@ vi.mock('../../../design-system', () => import('../../../design-system/mocks'))
 
 (`mocks.tsx` strips design props, renders `Alert` with `data-testid="alert"`, `Drawer` as `role="dialog"`, etc.). Adjust the relative path to the test location. Icons from `lucide-react` render fine as-is.
 
-When a component composes heavy children, mock them like `TodosPage.test.tsx` does (`vi.mock('./components/TodoList', () => ({ TodoList: () => <p>Task list</p> }))`) and assert the props/branches of the unit under test.
+**Extending an existing test file:** follow its style. `TodosPage.test.tsx` mocks every child component and hook – keep doing that there (a new child of the page needs a mock next to the others).
+
+**New page- or container-level tests:** mock at the boundary instead of every layer – render the real children inside `createQueryWrapper()` and mock only `todosApi` (plus the design system, as everywhere). Hand-written child mocks redeclare props that TypeScript can't check against the real components, and they break whenever the component tree changes. Mock a child only when it is genuinely heavy or has its own data dependency the test doesn't care about.
 
 ### Hooks using TanStack Query – real QueryClient, mocked API
 

@@ -155,6 +155,8 @@ _TODO: link the demo PR and paste the agent's decisions, skills used, test resul
 
 ## 7. What I would change for production
 
+- **Fewer mocks in page-level tests.** The existing `TodosPage.test.tsx` mocks all 12 collaborators (child components and hooks). That isolates the page's orchestration logic, but the tests break when the component tree changes (adding one child in the demo PR failed 12 tests with no user-visible bug), and the hand-written child mocks redeclare props that TypeScript can't check against the real components. I'd test pages with their real children, a real QueryClient and only `todosApi` mocked (still no network). I didn't rewrite the upstream file; the frontend skill now asks for this style in *new* page-level tests and keeps the existing file's style when extending it.
+
 - Dependabot or Renovate, plus patch upgrades for the advisories in section 0.
 - A GitHub App token for the push, so regular CI runs on the agent's commit, with a guard that skips the bot's own commits.
 - Make `CI` a required status check through branch protection.

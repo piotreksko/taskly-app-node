@@ -55,7 +55,7 @@ describe('classify-changes.mjs', () => {
     const out = classify([
       'M\tfrontend/src/features/todos/types.ts',
       'M\tfrontend/src/features/todos/index.ts',
-      'M\tfrontend/src/features/todos/constants.ts',
+      'M\tfrontend/src/features/archive/constants.ts', // a path no module imports: no dependents, whatever the repo contains
       'M\tfrontend/src/design-system/Button/Button.tsx',
       'M\tfrontend/src/test/setup.ts',
       'M\tfrontend/src/main.tsx',
