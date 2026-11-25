@@ -25,6 +25,14 @@ export default defineConfig({
       ],
       reporter: ['text', 'html', 'lcov', 'json-summary'],
       reportsDirectory: './coverage',
+      // Package-wide regression floor, set below the coverage after the test backfill.
+      // Coverage of new code is checked per changed line by the unit-test agent, not here.
+      thresholds: {
+        statements: 90,
+        branches: 85,
+        functions: 90,
+        lines: 90,
+      },
     },
   },
 })
