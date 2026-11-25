@@ -586,6 +586,33 @@ describe('push allowlist', () => {
   });
 });
 
+// --- workflow shell steps ------------------------------------------------------
+
+describe('workflow shell steps', () => {
+  // `gh aw lint` runs actionlint without shellcheck, so a broken quote in a `run: |` block only fails at runtime.
+  test('every multi-line run block in the workflow sources parses with bash -n', () => {
+    let checked = 0;
+    for (const file of ['.github/workflows/unit-test-agent.md', '.github/workflows/ci.yml']) {
+      const lines = readFileSync(path.join(root, file), 'utf8').replace(/\r\n/g, '\n').split('\n');
+      lines.forEach((text, index) => {
+        const start = /^(\s*)(- )?run: \|\s*$/.exec(text);
+        if (!start) return;
+        const indent = start[1].length + (start[2] ? 2 : 0);
+        const body = [];
+        for (const next of lines.slice(index + 1)) {
+          if (next.trim() && next.match(/^\s*/)[0].length <= indent) break;
+          body.push(next);
+        }
+        const script = write(`run-block-${checked}.sh`, body.join('\n'));
+        const result = spawnSync('bash', ['-n', script], { encoding: 'utf8' });
+        assert.equal(result.status, 0, `${file}:${index + 1}: ${result.stderr}`);
+        checked++;
+      });
+    }
+    assert.ok(checked >= 6, `only ${checked} run blocks found`);
+  });
+});
+
 // --- finalize-report.mjs -----------------------------------------------------
 
 describe('finalize-report.mjs', () => {

@@ -163,7 +163,7 @@ jobs:
             exit 0
           fi
           gh workflow run ci.yml --repo "$REPO" --ref "$HEAD_REF"
-          echo "Started CI on $PUSH_SHA
+          echo "Started CI on $PUSH_SHA"
 
 # The custom agent (role, procedure, hard rules) and its reusable skills.
 imports:
@@ -319,6 +319,10 @@ safe-outputs:
     commit-title-suffix: " [unit-test-agent]"
     # Pushes made with GITHUB_TOKEN don't re-trigger workflows, which also prevents an agent loop.
     github-token-for-extra-empty-commit: none
+    # Plain git push instead of an API-created signed commit: the API path emits pull_request events whose
+    # runs (actor github-actions[bot]) wait for manual approval. finalize-report dispatches CI explicitly instead.
+    # Trade-off: the agent's commit is not marked "Verified".
+    signed-commits: false
   noop:
 ---
 
