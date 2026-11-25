@@ -550,6 +550,42 @@ describe('failing-tests.mjs', () => {
   });
 });
 
+// --- push allowlist (unit-test-agent.md safe-outputs) ------------------------
+
+describe('push allowlist', () => {
+  // Same conversion as gh-aw's globPatternToRegex (gh-aw-actions setup/js/glob_pattern_helpers.cjs, v1.2.2):
+  // escape regex characters, then "**" -> ".*" and "*" -> "[^/]*", anchored. "dir/**/*.x" needs a subfolder.
+  const toRegex = (pattern) => new RegExp(`^${pattern
+    .replace(/\\/g, '\\\\').replace(/\./g, '\\.').replace(/[+?^${}()|[\]]/g, '\\$&')
+    .replace(/\*\*|\*/g, (wildcard) => (wildcard === '**' ? '.*' : '[^/]*'))}$`);
+  // Parsed inside the tests (and line-ending tolerant), so a missing block fails a test instead of the suite.
+  const allowed = (file) => {
+    const workflow = readFileSync(path.join(root, '.github/workflows/unit-test-agent.md'), 'utf8').replace(/\r\n/g, '\n');
+    const block = /allowed-files:\n((?:[ \t]+- ".+"\n)+)/.exec(workflow);
+    assert.ok(block, 'allowed-files block not found in unit-test-agent.md');
+    const patterns = [...block[1].matchAll(/- "(.+)"/g)].map(([, glob]) => toRegex(glob));
+    assert.ok(patterns.length >= 3, `only ${patterns.length} allowed-files patterns parsed`);
+    return patterns.some((pattern) => pattern.test(file));
+  };
+
+  test('accepts every test file and fixture in the repository, at any depth', () => {
+    const files = execFileSync('git', ['ls-files', 'backend/tests', 'frontend/src'], { cwd: root, encoding: 'utf8' })
+      .split('\n').filter((file) => /\.test\.tsx?$/.test(file) || file.startsWith('frontend/src/test/') || file === 'backend/tests/fixture.ts');
+    assert.ok(files.length > 30, `found ${files.length} test files`);
+    // Plus new files the agent may create where none exist yet.
+    files.push('backend/tests/summary.test.ts', 'backend/tests/features/nested.test.ts', 'frontend/src/App2.test.tsx', 'frontend/src/main.test.ts');
+    assert.deepEqual(files.filter((file) => !allowed(file)), []);
+  });
+
+  test('rejects application source, configs, workflows and agent files', () => {
+    for (const file of [
+      'backend/src/features/todos/router.ts', 'backend/tests/helpers.ts', 'backend/package.json', 'backend/vitest.config.ts',
+      'frontend/src/App.tsx', 'frontend/src/features/todos/utils/todos.ts', 'frontend/vite.config.ts',
+      '.github/workflows/ci.yml', '.github/skills/run-tests-and-coverage/SKILL.md', 'scripts/finalize-report.mjs',
+    ]) assert.equal(allowed(file), false, file);
+  });
+});
+
 // --- finalize-report.mjs -----------------------------------------------------
 
 describe('finalize-report.mjs', () => {
@@ -583,7 +619,7 @@ describe('finalize-report.mjs', () => {
   });
 
   test('no push means no commit', () => {
-    assert.equal(line(finalize(REPORT, {}), '**Commit:**'), '**Commit:** none – no test files changed');
+    assert.equal(line(finalize(REPORT, {}), '**Commit:**'), '**Commit:** none – nothing was pushed to this branch');
   });
 
   test('a missing Commit line is added under the heading instead of being lost', () => {

@@ -300,9 +300,14 @@ safe-outputs:
     hide-older-comments: true
   push-to-pull-request-branch:
     # Hard allowlist: the agent can only ever deliver test files and shared test fixtures.
+    # gh-aw matches "**" as ".*" and "*" as "[^/]*", so "dir/**/*.x" needs at least one subfolder:
+    # each location is listed both directly ("dir/*.x") and nested. Checked by scripts/test/skill-scripts.test.mjs.
     allowed-files:
+      - "backend/tests/*.test.ts"
       - "backend/tests/**/*.test.ts"
       - "backend/tests/fixture.ts"
+      - "frontend/src/*.test.ts"
+      - "frontend/src/*.test.tsx"
       - "frontend/src/**/*.test.ts"
       - "frontend/src/**/*.test.tsx"
       - "frontend/src/test/**"

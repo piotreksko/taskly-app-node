@@ -35,7 +35,7 @@ function rewrite(body, { sha, url, failures, errors }) {
     const short = sha.slice(0, 7);
     commit = `**Commit:** ${url ? `[\`${short}\`](${url})` : `\`${short}\``} – tests pushed to this branch`;
   } else {
-    commit = '**Commit:** none – no test files changed';
+    commit = '**Commit:** none – nothing was pushed to this branch';
   }
   let commitReplaced = false;
   let statusReplaced = false;
