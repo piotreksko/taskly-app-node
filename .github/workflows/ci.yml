@@ -1,0 +1,87 @@
+# Plain CI (no AI): typecheck, unit tests and coverage thresholds for both packages,
+# plus tests of the skill scripts and a drift check of the agent assets. Runs on every PR push and on main.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.package }} – typecheck, tests, coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [backend, frontend]
+    defaults:
+      run:
+        working-directory: ${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ${{ matrix.package }}/package-lock.json
+
+      # No install scripts (see SOLUTION.md §0); the Prisma client is generated explicitly instead.
+      - name: Install dependencies
+        env:
+          SCARF_ANALYTICS: "false"
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Generate Prisma client
+        if: matrix.package == 'backend'
+        run: npx prisma generate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests with coverage thresholds
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-${{ matrix.package }}
+          path: ${{ matrix.package }}/coverage/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  agent-assets:
+    name: Agent assets – script tests and mirror check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      # incremental-scope.mjs compares syntax trees with the frontend's own TypeScript compiler.
+      - name: Install frontend dependencies (no install scripts)
+        env:
+          SCARF_ANALYTICS: "false"
+        run: cd frontend && npm ci --ignore-scripts --no-audit --no-fund
+      # The skill scripts produce the numbers the agent reports; their tests use node:test (no dependencies).
+      - name: Test the skill scripts
+        run: node --test scripts/test/skill-scripts.test.mjs
+      - name: .claude mirror matches .github
+        run: node scripts/sync-agent-assets.mjs --check
