@@ -1,11 +1,14 @@
 # Plain CI (no AI): typecheck, unit tests and coverage thresholds for both packages,
 # plus tests of the skill scripts and a drift check of the agent assets. Runs on every PR push and on main.
+# workflow_dispatch lets the unit-test agent workflow re-run it on the commit with the agent's tests
+# (that push was made with GITHUB_TOKEN, which starts no pull_request/push workflows).
 name: CI
 
 on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read

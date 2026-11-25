@@ -113,6 +113,9 @@ jobs:
 
   # The agent writes its report before the publishing job pushes, so it can't know the outcome.
   # This job rewrites the report's "Commit:" line with what really happened: the commit, "push failed", or none.
+  # Then it starts ci.yml on the agent's commit: pushes made with GITHUB_TOKEN start no workflows, but a
+  # workflow_dispatch is the documented exception – so CI re-runs without a PAT and without an extra commit
+  # (an extra commit would re-trigger this workflow and cancel this run before it finishes).
   # It has write access, so it runs only code from the base branch (a sparse checkout of one script), never PR code.
   finalize-report:
     needs: [safe_outputs]
@@ -122,6 +125,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      actions: write # only to start ci.yml (workflow_dispatch) on the agent's commit
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -142,6 +146,22 @@ jobs:
           PUSH_FAILURES: ${{ needs.safe_outputs.outputs.code_push_failure_count }}
           PUSH_ERRORS: ${{ needs.safe_outputs.outputs.code_push_failure_errors }}
         run: node scripts/finalize-report.mjs
+      - name: Re-run CI on the agent's commit
+        if: needs.safe_outputs.outputs.push_commit_sha != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PUSH_SHA: ${{ needs.safe_outputs.outputs.push_commit_sha }}
+        run: |
+          # If the developer has pushed since, that push already runs CI on the newer commit.
+          current=$(gh api "repos/$REPO/git/ref/heads/$HEAD_REF" --jq .object.sha)
+          if [ "$current" != "$PUSH_SHA" ]; then
+            echo "Branch moved on ($current); CI runs for that push instead."
+            exit 0
+          fi
+          gh workflow run ci.yml --repo "$REPO" --ref "$HEAD_REF"
+          echo "Started CI on $PUSH_SHA
 
 # The custom agent (role, procedure, hard rules) and its reusable skills.
 imports:

@@ -50,9 +50,9 @@ The base repository was third-party code, so I reviewed it **before** installing
 - Bash is restricted to an allowlist: read tools, `npm run`, `npx vitest/prettier/tsc` and read-only git.
 - Fork PRs are blocked (gh-aw default), and `pull_request_target` is not used.
 - PR title, body, commits, comments and diff are treated as untrusted data, and injection attempts are reported.
-- Pushes use `GITHUB_TOKEN`, which can't trigger workflows, so the agent can't loop on its own commit.
+- Pushes use `GITHUB_TOKEN`, which doesn't start `pull_request`/`push` workflows, so the agent can't loop on its own commit. CI is re-run on that commit explicitly instead (`workflow_dispatch`, see below).
 - A separate plain `ci.yml` (no AI, `contents: read`, actions pinned by SHA) runs typecheck, tests and coverage thresholds on every PR push and on `main`, plus the skill-script tests and a check that the `.claude/` mirror matches `.github/`.
-- The agent writes its report before the push happens, so a separate `finalize-report` job rewrites the report's *Commit* line afterwards with the real outcome from the publishing job: a link to the commit, "push failed – tests not applied" (and a failed status), or "none". It is the only extra job with write access (`pull-requests: write`), runs after threat detection, and runs only a script from the **base branch** (sparse checkout), never code from the PR.
+- The agent writes its report before the push happens, so a separate `finalize-report` job rewrites the report's *Commit* line afterwards with the real outcome from the publishing job: a link to the commit, "push failed – tests not applied" (and a failed status), or "none". It is the only extra job with write access (`pull-requests: write`), runs after threat detection, and runs only a script from the **base branch** (sparse checkout), never code from the PR. After a successful push it also starts `ci.yml` on the agent's commit through `workflow_dispatch`, the one kind of event `GITHUB_TOKEN` may trigger, so CI checks the commit with the tests without a stored PAT and without an extra commit. For this it alone gets `actions: write`. It skips this if the developer has pushed since, because that push runs CI anyway.
 - The `scope` job has `actions: read` and `pull-requests: read` to read run history and the link to the previous report (only its URL, never a comment body).
 - Cost and time limits: a `paths:` filter, draft PRs skipped, the agent job skipped when the scope job finds nothing to analyse, `max-turns: 80`, `timeout-minutes: 30`, and `concurrency` cancelling superseded runs.
 
@@ -72,7 +72,7 @@ Every run works on the PR's latest head commit. Its checkpoint is the commit of 
 | Developer edits tests the agent wrote earlier | Treated like any other existing test: preserved, never rewritten (see *Existing tests are human-owned*). |
 | Only docs, config or other non-source files change | The `paths:` filter doesn't start the agent. `ci.yml` still runs. |
 | Developer fixes a failing test | `ci.yml` validates it. The agent starts only if source files changed too. |
-| The agent pushes its tests | Not a new trigger: `GITHUB_TOKEN` pushes don't start workflows, so there's no loop. The tests were verified inside the agent run (see Limitations). |
+| The agent pushes its tests | Not a new agent trigger: `GITHUB_TOKEN` pushes don't start workflows, so there's no loop. `finalize-report` then starts `ci.yml` on that commit (`workflow_dispatch`), so the PR shows a CI result for the commit with the tests. |
 | Developer pushes again after the agent's commit | The agent's commit only adds tests, so it never counts as a source change. A new run analyses the developer's changes and sees the agent's earlier tests as existing tests. |
 
 ## 2. Prerequisites and how to run the PR workflow
@@ -110,7 +110,7 @@ Locally, the agent first produces the same context files as the CI steps (`analy
 | `.github/skills/run-tests-and-coverage/` | Step 3. Targeted run → fix-or-drop loop (max 2 attempts) → quality review and the check that existing tests were preserved → typecheck and full suite with thresholds → re-run for flaky tests → coverage tables from `coverage-delta.mjs` and `uncovered-changed-lines.mjs`. |
 | `.github/skills/report-test-results/` | Step 4. The PR report in a fixed format: decisions per file, test plan → result, changes to existing tests, verification, changed-line coverage, dropped tests and suspected bugs. |
 | `.github/workflows/unit-test-agent.md` | The agentic workflow source. `unit-test-agent.lock.yml` is the compiled Actions workflow. |
-| `scripts/finalize-report.mjs` | Used by the `finalize-report` job: replaces the report's *Commit* line with the real push outcome. |
+| `scripts/finalize-report.mjs` | Used by the `finalize-report` job: replaces the report's *Commit* line with the real push outcome. The same job then re-runs `ci.yml` on the agent's commit. |
 | `scripts/sync-agent-assets.mjs` | Mirrors the agent and skills to `.claude/` for local use in Claude Code. |
 | `.github/skills/analyze-pr-changes/scripts/incremental-scope.mjs` | Decides full / incremental / skip for each push (used by the `scope` job and the agent job). |
 | `scripts/test/skill-scripts.test.mjs` | Fixture-based tests of the five skill scripts and `finalize-report.mjs` (fake diffs, lcov, Vitest results, coverage summaries and throwaway git repositories with real commit histories). |
@@ -142,7 +142,7 @@ _TODO: link the demo PR and paste the agent's decisions, skills used, test resul
 
 - The `npm audit` advisories listed in section 0 are not fixed, because dependency upgrades are out of scope.
 - **Fork PRs are not processed.** gh-aw blocks them by default, and pushing to a fork needs extra credentials.
-- **`ci.yml` doesn't run on the agent's own commit**, because pushes made with `GITHUB_TOKEN` don't trigger workflows (this is also what prevents a loop). Those tests were verified inside the agent run, and CI runs again on the developer's next push. A GitHub App token or PAT (`github-token-for-extra-empty-commit`) would fix this, but it needs a guard so the agent doesn't react to its own commit.
+- **CI on the agent's commit is started by the workflow, not by the push.** `finalize-report` dispatches `ci.yml` after a successful push. GitHub's own option for this (`github-token-for-extra-empty-commit`) was rejected: it needs a stored PAT, and its extra commit re-triggers the agent workflow, whose `cancel-in-progress` would cancel the finishing run (losing the report correction and the checkpoint). If CI is made a required check, confirm in the branch rules that dispatched runs satisfy it.
 - The baseline coverage step runs PR code outside the firewall, as ordinary CI does. That is acceptable only because fork PRs are excluded.
 - Backend tests follow the flat `backend/tests/<module>.test.ts` convention, so two modules with the same file name in different feature folders (for example two `router.ts`) would map to the same test file. With one feature today this can't happen; a second feature would need `tests/<feature>/` folders.
 - Constants are followed one level only: the files that import a changed constants module directly become candidates, files further down the import chain don't. Imports are matched as relative paths, which is all this repo uses (no path aliases).
@@ -159,7 +159,7 @@ _TODO: link the demo PR and paste the agent's decisions, skills used, test resul
 - **Fewer mocks in page-level tests.** The existing `TodosPage.test.tsx` mocks all 12 collaborators (child components and hooks). That isolates the page's orchestration logic, but the tests break when the component tree changes (adding one child in the demo PR failed 12 tests with no user-visible bug), and the hand-written child mocks redeclare props that TypeScript can't check against the real components. I'd test pages with their real children, a real QueryClient and only `todosApi` mocked (still no network). I didn't rewrite the upstream file; the frontend skill now asks for this style in *new* page-level tests and keeps the existing file's style when extending it.
 
 - Dependabot or Renovate, plus patch upgrades for the advisories in section 0.
-- A GitHub App token for the push, so regular CI runs on the agent's commit, with a guard that skips the bot's own commits.
+- A GitHub App identity for the agent's commits (instead of `github-actions[bot]`), with CI as a required check on `main`.
 - Make `CI` a required status check through branch protection.
 - A **revert check**: run each new test against the base version of the changed source. A test that also passes before the change proves nothing about the change.
 - Run tests in random order (`--sequence.shuffle`) in the flaky-test re-run.
