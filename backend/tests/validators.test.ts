@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createSchema, updateSchema, idSchema, todoSchema } from '../src/features/todos/validators.ts';
+import { createSchema, updateSchema, idSchema, todoSchema, summaryQuerySchema } from '../src/features/todos/validators.ts';
 import { todo } from './fixture.ts';
 
 describe('todo validation', () => {
@@ -31,6 +31,14 @@ describe('todo validation', () => {
   it('forbids extra patch fields', () => expect(updateSchema.safeParse({ id: 1 }).success).toBe(false));
   it.each(['0', '-1', '1.5', 'abc', '9007199254740992'])('rejects invalid id %s', (id) => {
     expect(idSchema.safeParse(id).success).toBe(false);
+  });
+  it('defaults and coerces the summary window', () => {
+    expect(summaryQuerySchema.parse({})).toEqual({ days: 3 });
+    expect(summaryQuerySchema.parse({ days: '0' })).toEqual({ days: 0 });
+    expect(summaryQuerySchema.parse({ days: '30' })).toEqual({ days: 30 });
+  });
+  it.each(['-1', '31', '1.5', 'abc'])('rejects invalid summary window %s', (days) => {
+    expect(summaryQuerySchema.safeParse({ days }).success).toBe(false);
   });
   it('parses positive ids and validates the response schema', () => {
     expect(idSchema.parse('12')).toBe(12);

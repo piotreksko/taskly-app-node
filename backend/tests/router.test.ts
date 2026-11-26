@@ -18,6 +18,44 @@ it('lists tasks from the repository', async () => {
   expect(response.body).toEqual([todo]);
   expect(repository.list).toHaveBeenCalledOnce();
 });
+it('summarizes tasks for the current UTC day with the default window', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-10T23:30:00Z'));
+  try {
+    const { app, repository } = setup();
+    repository.list.mockResolvedValue([
+      { ...todo, due_date: '2026-10-09' },
+      { ...todo, due_date: '2026-10-13' },
+      { ...todo, due_date: '2026-10-14' },
+      { ...todo, completed: true, due_date: '2026-10-09' },
+    ]);
+    const response = await request(app).get('/api/todos/summary');
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ total: 4, open: 3, completed: 1, overdue: 1, dueSoon: 1 });
+  } finally {
+    vi.useRealTimers();
+  }
+});
+it('summarizes tasks with a custom days window', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-10T12:00:00Z'));
+  try {
+    const { app, repository } = setup();
+    repository.list.mockResolvedValue([{ ...todo, due_date: '2026-10-14' }]);
+    const response = await request(app).get('/api/todos/summary?days=5');
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ total: 1, open: 1, completed: 0, overdue: 0, dueSoon: 1 });
+  } finally {
+    vi.useRealTimers();
+  }
+});
+it.each(['-1', '31', 'abc', '1.5'])('rejects an invalid summary window without listing tasks: days=%s', async (days) => {
+  const { app, repository } = setup();
+  const response = await request(app).get(`/api/todos/summary?days=${days}`);
+  expect(response.status).toBe(422);
+  expect(response.body.detail).toEqual(expect.any(Array));
+  expect(repository.list).not.toHaveBeenCalled();
+});
 it('creates tasks with trimmed input and defaults', async () => {
   const { app, repository } = setup();
   const response = await request(app).post('/api/todos').send({ title: '  Plan the sprint  ', priority: 'high' });

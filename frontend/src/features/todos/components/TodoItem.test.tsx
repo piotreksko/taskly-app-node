@@ -118,6 +118,15 @@ describe('with a fixed current date', () => {
     expect(screen.queryByText(/overdue/)).not.toBeInTheDocument()
   })
 
+  it.each([
+    ['2026-10-10', '10 Oct 2026 · due today'],
+    ['2026-10-11', '11 Oct 2026 · due tomorrow'],
+    ['2026-10-12', '12 Oct 2026 · due in 2 days'],
+  ])('labels a task due soon: %s', (due_date, text) => {
+    renderAt({ ...todoFixture, due_date })
+    expect(screen.getByText(text)).toBeVisible()
+  })
+
   it('shows a completed task with its description and no overdue marker', () => {
     renderAt({
       ...todoFixture,
