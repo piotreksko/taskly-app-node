@@ -15,7 +15,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * `days` days; "overdue" when it is open and its due date is before `today` (all dates are UTC days).
  */
 export function summarize(todos: Todo[], today: string, days = 3): TodoSummary {
-  const start = Date.parse(`${today}T00:00:00Z`);
+  const startOfToday = Date.parse(`${today}T00:00:00Z`);
   const summary: TodoSummary = {
     total: todos.length,
     open: 0,
@@ -30,7 +30,7 @@ export function summarize(todos: Todo[], today: string, days = 3): TodoSummary {
     }
     summary.open++;
     if (!todo.due_date) continue;
-    const diff = (Date.parse(`${todo.due_date}T00:00:00Z`) - start) / DAY_MS;
+    const diff = (Date.parse(`${todo.due_date}T00:00:00Z`) - startOfToday) / DAY_MS;
     if (diff < 0) summary.overdue++;
     else if (diff <= days) summary.dueSoon++;
   }
