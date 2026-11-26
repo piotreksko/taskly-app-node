@@ -16,7 +16,13 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  */
 export function summarize(todos: Todo[], today: string, days = 3): TodoSummary {
   const start = Date.parse(`${today}T00:00:00Z`);
-  const summary: TodoSummary = { total: todos.length, open: 0, completed: 0, overdue: 0, dueSoon: 0 };
+  const summary: TodoSummary = {
+    total: todos.length,
+    open: 0,
+    completed: 0,
+    overdue: 0,
+    dueSoon: 0,
+  };
   for (const todo of todos) {
     if (todo.completed) {
       summary.completed++;
