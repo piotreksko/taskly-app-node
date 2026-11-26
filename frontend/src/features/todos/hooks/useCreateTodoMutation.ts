@@ -15,6 +15,8 @@ export function useCreateTodoMutation() {
         saved,
         ...current.filter((todo) => todo.id !== saved.id),
       ])
+      // Counts in the summary bar depend on every change to the list.
+      void queryClient.invalidateQueries({ queryKey: todoKeys.summaries })
     },
   })
 }

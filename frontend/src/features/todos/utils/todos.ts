@@ -1,3 +1,4 @@
+import { DUE_SOON_DAYS } from '../constants'
 import type { Filter, Sort, Todo, TodoInput } from '../types'
 
 export const priorityLabels = { low: 'Low', medium: 'Medium', high: 'High' }
@@ -60,6 +61,20 @@ export function isOverdue(todo: Todo): boolean {
   const today = new Date()
   const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
   return !todo.completed && !!todo.due_date && todo.due_date < localDate
+}
+
+/** Short label for an open task that is overdue or due within DUE_SOON_DAYS days. */
+export function dueLabel(todo: Todo, now = new Date()): string | null {
+  if (todo.completed || !todo.due_date) return null
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+  const days = Math.round(
+    (Date.parse(`${todo.due_date}T00:00:00Z`) - today) / 86_400_000,
+  )
+  if (days < 0) return 'overdue'
+  if (days === 0) return 'due today'
+  if (days === 1) return 'due tomorrow'
+  if (days <= DUE_SOON_DAYS) return `due in ${days} days`
+  return null
 }
 
 export function formatDate(date: string): string {
