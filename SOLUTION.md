@@ -128,7 +128,39 @@ In CI, gh-aw installs the five skills listed under `skills:` into the Claude Cod
 The report shows changed-line coverage before and after the agent's tests.
 
 ## 4. Example run
-_TODO: link the demo PR and paste the agent's decisions, skills used, test results and coverage table._
+
+**Demo PR: [#7 – due-soon labels, summary endpoint and summary bar](https://github.com/piotreksko/taskly-app-node/pull/7).** It's a feature written for the demo, with no tests: a backend `GET /api/todos/summary` endpoint with its counting logic, a frontend summary bar with a query hook, due-soon labels on tasks, and summary invalidation in the three mutation hooks. It covers 15 files, and it breaks 12 existing `TodosPage` tests because the new child component isn't mocked there.
+
+| Push | What the workflow did | Result |
+| --- | --- | --- |
+| **1. Feature, no tests** (`2398e41`) | Full analysis: 12 testable files (3 new, 9 extended), 3 skipped (types, constants, query keys). The agent loaded all five skills, planned the cases, wrote the tests, ran typecheck and both full suites, ran the coverage scripts, committed and pushed. | Test commit [`a787f1d`](https://github.com/piotreksko/taskly-app-node/commit/a787f1d): changed-line coverage **43.9% → 100%**, backend 114/114, frontend 143/143. The 12 broken page tests were fixed by mocking the new child, with no assertion changed. CI was dispatched on the agent's commit and passed. |
+| **2. Formatting only** (`b457fec`) | The scope job compared syntax trees: only formatting changed. | **Agent job skipped, no model call, $0.** The run still counts as the new checkpoint. |
+| **3. Behaviour-neutral refactor** (`631c389`, a renamed local variable) | Incremental since `b457fec`: only `summary.ts` was in scope. | "No new tests needed": the changed lines are covered and the existing tests assert the behaviour. No commit, about $0.13. |
+
+The report on push 1, shortened (everything after the first lines is collapsed on GitHub):
+
+```
+## 🧪 Unit Test Agent
+Status: ✅ Added tests in 9 files (3 new, 6 extended) – all pass · changed-line coverage 43.9% → 100%
+Commit: a787f1d – tests pushed to this branch
+Scope:  Full analysis (first analysis of this PR)
+Found while testing
+- TodosPage.test.tsx: 12 tests failing before the agent ran (caused by this PR) – the page now renders
+  TodoSummaryBar; added its mock next to the other child mocks, no assertion changed.
+▸ Decisions – 12 files tested, 3 skipped      ▸ Test plan → result – all planned cases added
+▸ Verification – typecheck ✅, backend 114/114, frontend 143/143
+▸ Coverage – changed lines 43.9% → 100% (41 lines)      ▸ Changes to existing tests – 1      ▸ Commands and skills
+```
+
+Before the demo I rehearsed the agent locally on the same feature: it added tests that caught all 11 bugs I then planted in the feature code one at a time. The first CI runs (closed PRs #1 and #6) found five problems, each fixed and, where possible, covered by a test:
+1. GitHub's OIDC subject uses the immutable `owner@id/repo@id` format, so the federation rule had to match it.
+2. The agent loaded only one skill. The prompt now requires every skill, in order, and a checklist before delivery.
+3. Compound shell commands were refused, so the prompt now lists the allowed commands and asks for one command per call.
+4. The push allowlist's `dir/**/*.ts` doesn't match files directly in `dir`. It's fixed and tested with gh-aw's own matching rule.
+5. Bot pushes create runs that wait for approval. They are now cleaned up, and CI is dispatched instead.
+
+Two safeguards came out of this: delivery can't fail silently (`if-no-changes: error` plus the Commit line written by the workflow), and every shell step in the workflows is syntax-checked by a test.
+
 
 ## 5. Assumptions
 
