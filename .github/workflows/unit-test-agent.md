@@ -312,7 +312,9 @@ steps:
 safe-outputs:
   add-comment:
     max: 1
-    hide-older-comments: true
+    # Keep every report visible: an incremental report covers only the files changed since the last run,
+    # so it must not hide the full report of the first run.
+    hide-older-comments: false
   push-to-pull-request-branch:
     # Hard allowlist: the agent can only ever deliver test files and shared test fixtures.
     # gh-aw matches "**" as ".*" and "*" as "[^/]*", so "dir/**/*.x" needs at least one subfolder:

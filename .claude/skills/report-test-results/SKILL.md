@@ -88,5 +88,5 @@ cd backend && npm run typecheck
 
 ## Delivering it
 
-- **CI (gh-aw):** `push_to_pull_request_branch` publishes your *local commit*, so commit first – two separate one-line Bash calls: `git add -A backend/tests frontend/src`, then `git commit -m "test: add unit tests for <scope>"` (no multi-line message, no `&&` chain: the sandbox refuses compound commands). Then call `push_to_pull_request_branch` once, and `add_comment` with the Markdown body (older reports are hidden automatically). If nothing changed, call `noop` with a one-line reason **and** still post the comment when the PR had testable files.
+- **CI (gh-aw):** `push_to_pull_request_branch` publishes your *local commit*, so commit first – two separate one-line Bash calls: `git add -A backend/tests frontend/src`, then `git commit -m "test: add unit tests for <scope>"` (no multi-line message, no `&&` chain: the sandbox refuses compound commands). Then call `push_to_pull_request_branch` once, and `add_comment` with the Markdown body (earlier reports stay visible; an incremental report links to the previous one). If nothing changed, call `noop` with a one-line reason **and** still post the comment when the PR had testable files.
 - **Locally:** print the report; the human decides what to commit.
